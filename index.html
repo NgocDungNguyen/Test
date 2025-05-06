@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cipher Quest: Encryption Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .cipher-text {
+            font-family: 'Space Mono', monospace;
+        }
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+            z-index: -1;
+            background: repeating-linear-gradient(
+                45deg,
+                #4ade80 0px,
+                #4ade80 2px,
+                transparent 2px,
+                transparent 10px
+            );
+        }
+        .animate-slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .cipher-tools-container {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .cipher-key-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        .cipher-key-item {
+            background: #1e293b;
+            padding: 4px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .vigenere-table {
+            font-size: 0.75rem;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .vigenere-table th, .vigenere-table td {
+            border: 1px solid #4ade80;
+            padding: 2px;
+            text-align: center;
+        }
+        @media (max-width: 640px) {
+            .mobile-collapsible {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-out;
+            }
+            .mobile-collapsible.open {
+                max-height: 600px;
+            }
+            .cipher-key-grid {
+                grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+                font-size: 0.8rem;
+            }
+            .vigenere-table {
+                font-size: 0.65rem;
+            }
+        }
+        .tooltip {
+            position: relative;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #1e293b;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="relative">
+    <div class="matrix-bg"></div>
+    <div id="game-container" class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="text-center animate-slide-in hidden">
+            <h1 class="text-4xl md:text-5xl font-bold text-teal-400 mb-6">Cipher Quest</h1>
+            <p class="text-lg md:text-xl mb-8 max-w-2xl mx-auto">
+                Welcome, Agent. A rogue AI has encrypted critical intelligence. Your mission: decrypt messages across 7 levels to uncover the AI's plans and stop it. Each level reveals a unique piece of the puzzle.
+            </p>
+            <button onclick="startTutorial()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Begin Mission</button>
+        </div>
+
+        <!-- Tutorial Screen -->
+        <div id="tutorial-screen" class="animate-slide-in hidden">
+            <h2 class="text-3xl font-bold text-teal-400 mb-6">Tutorial: Cryptography Basics</h2>
+            <p class="mb-4">Cryptography secures information by transforming it into unreadable formats. In this game, you'll decrypt unique messages using various ciphers.</p>
+            <p class="mb-4">Each level introduces a new cipher with instructions and tools. Solve puzzles quickly with minimal hints to maximize your score.</p>
+            <button onclick="showLevelSelect()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg mt-4">Start Level 1</button>
+        </div>
+
+        <!-- Level Select Screen -->
+        <div id="level-select-screen" class="animate-slide-in hidden">
+            <h2 class="text-3xl font-bold text-teal-400 mb-6">Select Level</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Levels populated by JS -->
+            </div>
+            <button onclick="showCrypto101()" class="mt-6 text-purple-400 hover:text-purple-300">Cryptography 101</button>
+        </div>
+
+        <!-- Cryptography 101 Screen -->
+        <div id="crypto-101-screen" class="animate-slide-in hidden">
+            <h2 class="text-3xl font-bold text-teal-400 mb-6">Cryptography 101</h2>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Simple Substitution Cipher</h3>
+                    <p>Each letter is replaced by another based on a fixed key. Used in ancient times, e.g., by Julius Caesar's military. <a href="https://en.wikipedia.org/wiki/Substitution_cipher" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Caesar Cipher</h3>
+                    <p>Shifts each letter by a fixed number of positions. Simple but easily broken. <a href="https://en.wikipedia.org/wiki/Caesar_cipher" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Atbash Cipher</h3>
+                    <p>Maps letters from opposite ends of the alphabet (A→Z, B→Y). Used in ancient Hebrew texts. <a href="https://en.wikipedia.org/wiki/Atbash" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Vigenère Cipher</h3>
+                    <p>Polyalphabetic cipher using a keyword. Popular in the Renaissance. <a href="https://en.wikipedia.org/wiki/Vigen%C3%A8re_cipher" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Binary/ASCII Code</h3>
+                    <p>Encodes text as binary or ASCII numbers. Foundational to modern computing. <a href="https://en.wikipedia.org/wiki/ASCII" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Morse Code + Transposition</h3>
+                    <p>Combines Morse code with letter rearrangement. Used in telegraphy and military communications. <a href="https://en.wikipedia.org/wiki/Morse_code" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-amber-400">Mixed Cipher</h3>
+                    <p>Combines multiple ciphers. Reflects real-world encryption complexity. <a href="https://en.wikipedia.org/wiki/Cipher" target="_blank" class="text-purple-400 hover:text-purple-300">Learn More</a></p>
+                </div>
+            </div>
+            <button onclick="showLevelSelect()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg mt-6">Back to Levels</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="animate-slide-in hidden">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Left Panel: Instructions and Tools -->
+                <div class="md:w-1/3 bg-gray-800 p-6 rounded-lg mobile-collapsible">
+                    <h2 id="level-title" class="text-2xl font-bold text-teal-400 mb-4"></h2>
+                    <p id="level-story" class="mb-4"></p>
+                    <div id="cipher-instructions" class="mb-4"></div>
+                    <div id="cipher-tools" class="cipher-tools-container"></div>
+                    <button onclick="toggleInstructions()" class="md:hidden bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg">Toggle Instructions</button>
+                </div>
+                <!-- Right Panel: Gameplay -->
+                <div class="md:w-2/3 bg-gray-800 p-6 rounded-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="tooltip">Time: <span id="timer">60</span>s<span class="tooltip-text">Solve quickly for bonus points!</span></div>
+                        <div class="tooltip">Score: <span id="current-score">0</span><span class="tooltip-text">Your total score across levels</span></div>
+                        <div class="tooltip">Hints Used: <span id="hints-used">0</span><span class="tooltip-text">Fewer hints = higher score</span></div>
+                    </div>
+                    <div class="mb-4">
+                        <p class="cipher-text text-lg text-green-400">Encrypted Message:</p>
+                        <p id="encrypted-message" class="cipher-text break-words"></p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="decrypted-input" class="block mb-1">Your Decryption:</label>
+                        <input id="decrypted-input" type="text" class="w-full bg-gray-900 text-white p-2 rounded-lg" placeholder="Enter decrypted message">
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="checkAnswer()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg">Submit</button>
+                        <button onclick="getHint()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg">Stuck? Get Hint</button>
+                    </div>
+                    <p id="feedback" class="mt-4 text-green-400"></p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-between">
+                <button onclick="showLevelSelect()" class="text-purple-400 hover:text-purple-300">Back to Level Select</button>
+                <button onclick="toggleSound()" class="text-purple-400 hover:text-purple-300">Sound: <span id="sound-status">On</span></button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="animate-slide-in hidden">
+            <h2 class="text-3xl font-bold text-teal-400 mb-6">Mission Complete</h2>
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <p id="results-summary" class="mb-4"></p>
+                <p>Score: <span id="results-score"></span></p>
+                <p>High Score: <span id="high-score"></span></p>
+                <p class="mt-4 text-amber-400">Fun Fact: <span id="crypto-fact"></span></p>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button onclick="showLevelSelect()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg">Next Level</button>
+                <button onclick="showLevelSelect()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Level Select</button>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="animate-slide-in hidden">
+            <h2 class="text-3xl font-bold text-teal-400 mb-6">Victory!</h2>
+            <p class="text-lg mb-4">Congratulations, Agent! You've decrypted all messages and neutralized the rogue AI.</p>
+            <p>Total Score: <span id="total-score"></span></p>
+            <p>Rank: <span id="rank"></span></p>
+            <button onclick="showLevelSelect()" class="bg-teal-600 hover:cipher-text bg-teal-700 text-white font-bold py-2 px-4 rounded-lg mt-6">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-gray-900 p-4 md:hidden flex justify-around">
+        <button onclick="showLevelSelect()" class="text-teal-400 hover:text-teal-300">Levels</button>
+        <button onclick="showCrypto101()" class="text-teal-400 hover:text-teal-300">Crypto 101</button>
+        <button onclick="toggleSound()" class="text-teal-400 hover:text-teal-300">Sound</button>
+    </nav>
+
+    <script>
+        // Game State
+        let gameState = {
+            currentLevel: 0,
+            score: 0,
+            highScores: JSON.parse(localStorage.getItem('highScores')) || {},
+            progress: JSON.parse(localStorage.getItem('progress')) || { completed: [] },
+            hintsUsed: 0,
+            incorrectAttempts: 0,
+            timer: 60,
+            soundEnabled: true
+        };
+
+        // Sound Effects
+        const sounds = {
+            click: new Audio('https://freesound.org/data/previews/171/171671_2437358-lq.mp3'),
+            success: new Audio('https://freesound.org/data/previews/415/415209_5121236-lq.mp3'),
+            error: new Audio('https://freesound.org/data/previews/476/476517_8931599-lq.mp3')
+        };
+
+        // Level Data
+        const levels = [
+            {
+                id: 1,
+                title: "Level 1: Simple Substitution",
+                story: "The AI has sent an initial encrypted message. Use the substitution key to decrypt it and begin your mission.",
+                cipherType: "substitution",
+                encrypted: "TKAFG",
+                decrypted: "AGENT",
+                key: { T: 'A', K: 'G', A: 'E', F: 'N', G: 'T' },
+                instructions: "Each letter in the encrypted message is replaced by another letter. Use the provided key to substitute each letter.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Cipher Key</h3>
+                    <div class="cipher-key-grid">
+                        ${Object.entries({ A: 'E', B: 'X', C: 'I', D: 'U', E: 'S', F: 'N', G: 'T', H: 'V', I: 'C', J: 'P', K: 'G', L: 'R', M: 'H', N: 'Q', O: 'J', P: 'K', Q: 'L', R: 'M', S: 'B', T: 'A', U: 'F', V: 'W', W: 'Y', X: 'Z', Y: 'D', Z: 'O' })
+                            .map(([k, v]) => `<div class="cipher-key-item">${k} → ${v}</div>`).join('')}
+                    </div>
+                </div>`,
+                hints: [
+                    "Use the cipher key to replace each letter in the encrypted message.",
+                    "The message is a five-letter word describing your role.",
+                    "The message starts with 'A...'."
+                ],
+                fact: "Substitution ciphers were used by ancient civilizations like the Egyptians."
+            },
+            {
+                id: 2,
+                title: "Level 2: Caesar Cipher",
+                story: "The AI has shifted its encryption. Decrypt the message to receive your orders.",
+                cipherType: "caesar",
+                encrypted: "DIJTK",
+                decrypted: "BEGIN",
+                shift: 3,
+                instructions: "Each letter is shifted forward by a fixed number of positions in the alphabet. Shift back to decrypt.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Alphabet Reference</h3>
+                    <p class="cipher-text">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</p>
+                    <p>Clue: The shift is between 1 and 5.</p>
+                    <h3 class="text-lg font-bold text-amber-400">Reverse Shift Table</h3>
+                    <div class="cipher-key-grid">
+                        ${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c, i) => `<div class="cipher-key-item">${c} → ${String.fromCharCode(65 + ((i - 3 + 26) % 26))}</div>`).join('')}
+                    </div>
+                </div>`,
+                hints: [
+                    "Try shifting each letter back by a small number.",
+                    "The shift is 3 positions.",
+                    "The first letter 'D' decrypts to 'B'."
+                ],
+                fact: "Julius Caesar used this cipher to protect military messages."
+            },
+            {
+                id: 3,
+                title: "Level 3: Atbash Cipher",
+                story: "The AI is using an ancient cipher to hide its intentions. Decrypt to uncover the next step.",
+                cipherType: "atbash",
+                encrypted: "HLTKG",
+                decrypted: "START",
+                key: { A: 'Z', B: 'Y', C: 'X', D: 'W', E: 'V', F: 'U', G: 'T', H: 'S', I: 'R', J: 'Q', K: 'P', L: 'O', M: 'N', N: 'M', O: 'L', P: 'K', Q: 'J', R: 'I', S: 'H', T: 'G', U: 'F', V: 'E', W: 'D', X: 'C', Y: 'B', Z: 'A' },
+                instructions: "The Atbash Cipher maps each letter to its opposite in the alphabet (A→Z, B→Y, etc.). Use the key to decrypt.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Atbash Key</h3>
+                    <div class="cipher-key-grid">
+                        ${Object.entries({ A: 'Z', B: 'Y', C: 'X', D: 'W', E: 'V', F: 'U', G: 'T', H: 'S', I: 'R', J: 'Q', K: 'P', L: 'O', M: 'N', N: 'M', O: 'L', P: 'K', Q: 'J', R: 'I', S: 'H', T: 'G', U: 'F', V: 'E', W: 'D', X: 'C', Y: 'B', Z: 'A' })
+                            .map(([k, v]) => `<div class="cipher-key-item">${k} → ${v}</div>`).join('')}
+                    </div>
+                </div>`,
+                hints: [
+                    "Each letter maps to its opposite in the alphabet.",
+                    "The first letter 'H' decrypts to 'S'.",
+                    "The message starts with 'S...'."
+                ],
+                fact: "Atbash was used in ancient Hebrew texts around 500 BCE."
+            },
+            {
+                id: 4,
+                title: "Level 4: Vigenère Cipher",
+                story: "The AI's encryption is getting complex. Decrypt the message to learn its weakness.",
+                cipherType: "vigenere",
+                encrypted: "WAFHLTKAF",
+                decrypted: "CODEBREAK",
+                keyword: "KEY",
+                instructions: "The Vigenère Cipher uses a keyword to shift letters. Repeat the keyword to match the message length and use the table to decrypt.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Vigenère Table</h3>
+                    <table class="vigenere-table">
+                        <tr><th></th>${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c => `<th>${c}</th>`).join('')}</tr>
+                        ${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((r, i) => `<tr><th>${r}</th>${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((_, j) => `<td>${String.fromCharCode(65 + ((i + j) % 26))}</td>`).join('')}</tr>`).join('')}
+                    </table>
+                    <p>Clue: The keyword is 3 letters long.</p>
+                </div>`,
+                hints: [
+                    "Align the keyword with the encrypted text and use the table.",
+                    "The keyword is 'KEY'.",
+                    "The first letter 'W' with key 'K' decrypts to 'C'."
+                ],
+                fact: "The Vigenère Cipher was considered unbreakable until the 19th century."
+            },
+            {
+                id: 5,
+                title: "Level 5: Binary/ASCII Code",
+                story: "The AI is transmitting in binary. Convert the message to reveal its location.",
+                cipherType: "binary",
+                encrypted: "01001000 01001001 01000100 01000101",
+                decrypted: "HIDE",
+                instructions: "Each 8-bit binary number represents an ASCII character. Convert to decimal, then to a letter using the ASCII table.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">ASCII Table</h3>
+                    <div class="cipher-key-grid">
+                        ${Object.entries({ 65: 'A', 66: 'B', 67: 'C', 68: 'D', 69: 'E', 70: 'F', 71: 'G', 72: 'H', 73: 'I', 74: 'J', 75: 'K', 76: 'L', 77: 'M', 78: 'N', 79: 'O', 80: 'P', 81: 'Q', 82: 'R', 83: 'S', 84: 'T', 85: 'U', 86: 'V', 87: 'W', 88: 'X', 89: 'Y', 90: 'Z' })
+                            .map(([k, v]) => `<div class="cipher-key-item">${k} → ${v}</div>`).join('')}
+                    </div>
+                </div>`,
+                hints: [
+                    "Convert each binary to decimal, then use the ASCII table.",
+                    "The first binary '01001000' is 72 in decimal.",
+                    "The first letter is 'H'."
+                ],
+                fact: "ASCII is the standard for text in modern computing."
+            },
+            {
+                id: 6,
+                title: "Level 6: Morse Code + Transposition",
+                story: "The AI combined Morse code with a letter swap. Decode and rearrange to find its plan.",
+                cipherType: "morse_transposition",
+                encrypted: "- .... -. .- --",
+                decrypted: "ATTACK",
+                morse: "- .... -. .- --",
+                transposition: "Swap first and last letters",
+                instructions: "Decode the Morse code to letters, then swap the first and last letters to get the final message.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Morse Code Table</h3>
+                    <div class="cipher-key-grid">
+                        ${Object.entries({ A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' })
+                            .map(([k, v]) => `<div class="cipher-key-item">${k} → ${v}</div>`).join('')}
+                    </div>
+                    <p>Clue: Swap the first and last letters of the decoded message.</p>
+                </div>`,
+                hints: [
+                    "Decode the Morse code, then swap the first and last letters.",
+                    "The Morse code decodes to 'TKHAM'.",
+                    "Swap 'T' and 'M' to get the message."
+                ],
+                fact: "Morse code was critical in World War II communications."
+            },
+            {
+                id: 7,
+                title: "Level 7: Mixed Cipher Challenge",
+                story: "The AI's final message uses multiple ciphers. Decrypt it to stop its plan.",
+                cipherType: "mixed",
+                encrypted: "WAFHLTKAF",
+                decrypted: "DEFEATNOW",
+                steps: [
+                    { type: "caesar", shift: 2 },
+                    { type: "substitution", key: { A: 'E', B: 'X', C: 'I', D: 'U', E: 'S', F: 'N', G: 'T', H: 'V', I: 'C', J: 'P', K: 'G', L: 'R', M: 'H', N: 'Q', O: 'J', P: 'K', Q: 'L', R: 'M', S: 'B', T: 'A', U: 'F', V: 'W', W: 'Y', X: 'Z', Y: 'D', Z: 'O' } }
+                ],
+                instructions: "The message was encrypted with a Caesar Cipher (shift 2) followed by a substitution cipher. Reverse the steps: apply substitution, then shift back by 2.",
+                tools: `<div>
+                    <h3 class="text-lg font-bold text-amber-400">Caesar Shift (Reverse)</h3>
+                    <div class="cipher-key-grid">
+                        ${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c, i) => `<div class="cipher-key-item">${c} → ${String.fromCharCode(65 + ((i - 2 + 26) % 26))}</div>`).join('')}
+                    </div>
+                    <h3 class="text-lg font-bold text-amber-400">Substitution Key</h3>
+                    <div class="cipher-key-grid">
+                        ${Object.entries({ A: 'E', B: 'X', C: 'I', D: 'U', E: 'S', F: 'N', G: 'T', H: 'V', I: 'C', J: 'P', K: 'G', L: 'R', M: 'H', N: 'Q', O: 'J', P: 'K', Q: 'L', R: 'M', S: 'B', T: 'A', U: 'F', V: 'W', W: 'Y', X: 'Z', Y: 'D', Z: 'O' })
+                            .map(([k, v]) => `<div class="cipher-key-item">${k} → ${v}</div>`).join('')}
+                    </div>
+                </div>`,
+                hints: [
+                    "Reverse the ciphers: substitution first, then Caesar shift back by 2.",
+                    "After substitution, 'WAFHLTKAF' becomes 'CFIURAFIN'.",
+                    "Shift 'CFIURAFIN' back by 2 to get the message."
+                ],
+                fact: "Layered ciphers are common in modern encryption systems."
+            }
+        ];
+
+        // Utility Functions
+        function saveProgress() {
+            localStorage.setItem('progress', JSON.stringify(gameState.progress));
+            localStorage.setItem('highScores', JSON.stringify(gameState.highScores));
+        }
+
+        function playSound(sound) {
+            if (gameState.soundEnabled) {
+                sound.play().catch(() => {});
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('sound-status').textContent = gameState.soundEnabled ? 'On' : 'Off';
+            saveProgress();
+        }
+
+        // UI Navigation
+        function hideAllScreens() {
+            document.querySelectorAll('#game-container > div').forEach(screen => screen.classList.add('hidden'));
+        }
+
+        function showScreen(screenId) {
+            hideAllScreens();
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        function startTutorial() {
+            playSound(sounds.click);
+            showScreen('tutorial-screen');
+        }
+
+        function showLevelSelect() {
+            playSound(sounds.click);
+            showScreen('level-select-screen');
+            const levelGrid = document.querySelector('#level-select-screen .grid');
+            levelGrid.innerHTML = levels.map(level => `
+                <button onclick="startLevel(${level.id})" class="bg-gray-700 hover:bg-gray-600 text-white py-4 rounded-lg ${gameState.progress.completed.includes(level.id) ? 'border-2 border-green-400' : ''} ${level.id > Math.max(...gameState.progress.completed, 0) + 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${level.id > Math.max(...gameState.progress.completed, 0) + 1 ? 'disabled' : ''}>
+                    ${level.title}
+                </button>
+            `).join('');
+        }
+
+        function showCrypto101() {
+            playSound(sounds.click);
+            showScreen('crypto-101-screen');
+        }
+
+        function toggleInstructions() {
+            const instructions = document.querySelector('.mobile-collapsible');
+            instructions.classList.toggle('open');
+            playSound(sounds.click);
+        }
+
+        // Game Logic
+        let timerInterval;
+        function startLevel(levelId) {
+            playSound(sounds.click);
+            gameState.currentLevel = levelId;
+            gameState.hintsUsed = 0;
+            gameState.incorrectAttempts = 0;
+            gameState.timer = 60;
+            const level = levels.find(l => l.id === levelId);
+            showScreen('game-screen');
+            document.getElementById('level-title').textContent = level.title;
+            document.getElementById('level-story').textContent = level.story;
+            document.getElementById('cipher-instructions').innerHTML = level.instructions;
+            document.getElementById('cipher-tools').innerHTML = level.tools;
+            document.getElementById('encrypted-message').textContent = level.encrypted;
+            document.getElementById('decrypted-input').value = '';
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('timer').textContent = gameState.timer;
+            document.getElementById('hints-used').textContent = gameState.hintsUsed;
+            document.getElementById('current-score').textContent = gameState.score;
+
+            // Start Timer
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                gameState.timer--;
+                document.getElementById('timer').textContent = gameState.timer;
+                if (gameState.timer <= 0) {
+                    clearInterval(timerInterval);
+                    showResults(false);
+                }
+            }, 1000);
+
+            // Keyboard Shortcuts
+            document.getElementById('decrypted-input').focus();
+            document.addEventListener('keydown', handleShortcuts);
+        }
+
+        function handleShortcuts(e) {
+            if (e.key === 'Enter') checkAnswer();
+            if (e.key === 'h') getHint();
+        }
+
+        function checkAnswer() {
+            playSound(sounds.click);
+            const level = levels.find(l => l.id === gameState.currentLevel);
+            const input = document.getElementById('decrypted-input').value.trim().toUpperCase();
+            if (input === level.decrypted) {
+                playSound(sounds.success);
+                clearInterval(timerInterval);
+                showResults(true);
+            } else {
+                playSound(sounds.error);
+                gameState.incorrectAttempts++;
+                document.getElementById('feedback').textContent = 'Incorrect. Try again.';
+                document.getElementById('feedback').classList.remove('text-green-400');
+                document.getElementById('feedback').classList.add('text-red-400');
+            }
+        }
+
+        function getHint() {
+            playSound(sounds.click);
+            const level = levels.find(l => l.id === gameState.currentLevel);
+            if (gameState.hintsUsed < level.hints.length) {
+                document.getElementById('feedback').textContent = level.hints[gameState.hintsUsed];
+                document.getElementById('feedback').classList.remove('text-red-400');
+                document.getElementById('feedback').classList.add('text-green-400');
+                gameState.hintsUsed++;
+                document.getElementById('hints-used').textContent = gameState.hintsUsed;
+            } else {
+                document.getElementById('feedback').textContent = 'No more hints available.';
+            }
+        }
+
+        function showResults(success) {
+            playSound(sounds.click);
+            showScreen('results-screen');
+            const level = levels.find(l => l.id === gameState.currentLevel);
+            let baseScore = success ? 1000 : 0;
+            let timeBonus = success ? Math.floor((gameState.timer / 60) * 500) : 0;
+            let hintPenalty = gameState.hintsUsed * 100;
+            let errorPenalty = gameState.incorrectAttempts * 50;
+            let perfectBonus = (gameState.hintsUsed === 0 && gameState.incorrectAttempts === 0 && success) ? 250 : 0;
+            let levelScore = baseScore + timeBonus - hintPenalty - errorPenalty + perfectBonus;
+            gameState.score += levelScore;
+
+            if (success && !gameState.progress.completed.includes(gameState.currentLevel)) {
+                gameState.progress.completed.push(gameState.currentLevel);
+            }
+
+            if (!gameState.highScores[gameState.currentLevel] || levelScore > gameState.highScores[gameState.currentLevel]) {
+                gameState.highScores[gameState.currentLevel] = levelScore;
+            }
+
+            saveProgress();
+
+            document.getElementById('results-summary').textContent = success
+                ? `Well done! You decrypted the message: "${level.decrypted}".`
+                : 'Time’s up! The AI got away this time.';
+            document.getElementById('results-score').textContent = `${levelScore} (Base: ${baseScore}, Time Bonus: ${timeBonus}, Hint Penalty: -${hintPenalty}, Error Penalty: -${errorPenalty}, Perfect Bonus: ${perfectBonus})`;
+            document.getElementById('high-score').textContent = gameState.highScores[gameState.currentLevel];
+            document.getElementById('crypto-fact').textContent = level.fact;
+
+            if (gameState.progress.completed.length === levels.length) {
+                showVictory();
+            }
+        }
+
+        function showVictory() {
+            playSound(sounds.success);
+            showScreen('victory-screen');
+            const totalScore = Object.values(gameState.highScores).reduce((a, b) => a + b, 0);
+            let rank = totalScore > 5000 ? 'Master Cryptographer' : totalScore > 3000 ? 'Codebreaker' : 'Novice Agent';
+            document.getElementById('total-score').textContent = totalScore;
+            document.getElementById('rank').textContent = rank;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            showScreen('welcome-screen');
+            // Load sounds
+            Object.values(sounds).forEach(sound => {
+                sound.preload = 'auto';
+                sound.load();
+            });
+        });
+    </script>
+</body>
+</html>
